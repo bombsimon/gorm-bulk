@@ -14,10 +14,10 @@ type ExecFunc func(scope *gorm.Scope, columnNames, groups []string)
 // will be used as SQL and the variables in scope.SQLVars will be used as
 // values.
 //
-// INSERT INTO `tbl`
-// 		(col1, col2)
-// VALUES
-// 		(?, ?), (?, ?)
+//  INSERT INTO `tbl`
+//    (col1, col2)
+//  VALUES
+//    (?, ?), (?, ?)
 func InsertFunc(scope *gorm.Scope, columnNames, groups []string) {
 	defaultWithFormat(scope, columnNames, groups, "INSERT INTO %s (%s) VALUES %s")
 }
@@ -25,10 +25,10 @@ func InsertFunc(scope *gorm.Scope, columnNames, groups []string) {
 // InsertIgnoreFunc will run INSERT IGNORE with all the records and values set
 // on the passed scope pointer.
 //
-// INSERT IGNORE INTO `tbl`
-// 		(col1, col2)
-// VALUES
-// 		(?, ?), (?, ?)
+//  INSERT IGNORE INTO `tbl`
+//    (col1, col2)
+//  VALUES
+//    (?, ?), (?, ?)
 func InsertIgnoreFunc(scope *gorm.Scope, columnNames, groups []string) {
 	defaultWithFormat(scope, columnNames, groups, "INSERT IGNORE INTO %s (%s) VALUES %s")
 }
@@ -36,13 +36,13 @@ func InsertIgnoreFunc(scope *gorm.Scope, columnNames, groups []string) {
 // InsertOnDuplicateKeyUpdateFunc will perform a bulk insert but on duplicate key
 // perform an update.
 //
-// INSERT INTO `tbl`
-// 		(col1, col2)
-// VALUES
-// 		(?, ?), (?, ?)
-// ON DUPLICATE KEY UPDATE
-// 		col1 = VALUES(col1),
-//		col2 = VALUES(col2)
+//  INSERT INTO `tbl`
+//    (col1, col2)
+//  VALUES
+//    (?, ?), (?, ?)
+//  ON DUPLICATE KEY UPDATE
+//    col1 = VALUES(col1),
+//    col2 = VALUES(col2)
 func InsertOnDuplicateKeyUpdateFunc(scope *gorm.Scope, columnNames, groups []string) {
 	var duplicateUpdates []string
 
