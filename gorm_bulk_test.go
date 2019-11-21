@@ -125,3 +125,87 @@ func Test_scopeFromObjects(t *testing.T) {
 		})
 	}
 }
+
+func TestBulkExecChunk(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	gdb, err := gorm.Open("mysql", db)
+	require.NoError(t, err)
+
+	type test struct {
+		ID  int `gorm:"primary_key"`
+		Foo string
+		Bar string
+	}
+
+	cases := []struct {
+		description      string
+		execFunc         ExecFunc
+		slices           []interface{}
+		chunkSize        int
+		expectedMockFunc func(mock sqlmock.Sqlmock)
+	}{
+		{
+			description: "six rows in chunks of 3 - will be two calls with 6 args",
+			execFunc:    InsertFunc,
+			slices: []interface{}{
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+			},
+			chunkSize: 3,
+			expectedMockFunc: func(mock sqlmock.Sqlmock) {
+				// We expect two insert statements
+				mock.ExpectExec("INSERT INTO `tests`").
+					WithArgs("two", "one", "two", "one", "two", "one").
+					WillReturnResult(sqlmock.NewResult(0, 0))
+
+				mock.ExpectExec("INSERT INTO `tests`").
+					WithArgs("two", "one", "two", "one", "two", "one").
+					WillReturnResult(sqlmock.NewResult(0, 0))
+			},
+		},
+		{
+			description: "uneven row count, chunk size of 3, calls with different arg count",
+			execFunc:    InsertFunc,
+			slices: []interface{}{
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+				test{Foo: "one", Bar: "two"},
+			},
+			chunkSize: 3,
+			expectedMockFunc: func(mock sqlmock.Sqlmock) {
+				// We expect two insert statements
+				mock.ExpectExec("INSERT INTO `tests`").
+					WithArgs("two", "one", "two", "one", "two", "one").
+					WillReturnResult(sqlmock.NewResult(0, 0))
+
+				mock.ExpectExec("INSERT INTO `tests`").
+					WithArgs("two", "one", "two", "one", "two", "one").
+					WillReturnResult(sqlmock.NewResult(0, 0))
+
+				mock.ExpectExec("INSERT INTO `tests`").
+					WithArgs("two", "one").
+					WillReturnResult(sqlmock.NewResult(0, 0))
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.description, func(t *testing.T) {
+			tc.expectedMockFunc(mock)
+
+			err := BulkExecChunk(gdb, tc.slices, tc.execFunc, tc.chunkSize)
+
+			require.Nil(t, err)
+		})
+	}
+}

@@ -25,6 +25,39 @@ func BulkInsertOnDuplicateKeyUpdate(db *gorm.DB, objects []interface{}) error {
 	return BulkExec(db, objects, InsertOnDuplicateKeyUpdateFunc)
 }
 
+// BulkExecChunk will split the objects passed into the passed chunk size. A
+// slice of errors will be returned (if any).
+func BulkExecChunk(db *gorm.DB, objects []interface{}, execFunc ExecFunc, chunkSize int) []error {
+	var allErrors []error
+
+	for {
+		var chunkObjects []interface{}
+
+		if len(objects) <= chunkSize {
+			chunkObjects = objects
+			objects = []interface{}{}
+		} else {
+			chunkObjects = objects[:chunkSize]
+			objects = objects[chunkSize:]
+		}
+
+		if err := BulkExec(db, chunkObjects, execFunc); err != nil {
+			allErrors = append(allErrors, err)
+		}
+
+		// Nothing more to do
+		if len(objects) < 1 {
+			break
+		}
+	}
+
+	if len(allErrors) > 0 {
+		return allErrors
+	}
+
+	return nil
+}
+
 // BulkExec will convert a slice of interface to bulk SQL statement. The final
 // SQL will be determined by the ExecFunc passed.
 func BulkExec(db *gorm.DB, objects []interface{}, execFunc ExecFunc) error {
