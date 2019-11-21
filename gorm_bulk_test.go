@@ -22,12 +22,13 @@ func Test_scopeFromObjects(t *testing.T) {
 	}
 
 	cases := []struct {
-		description string
-		slice       []interface{}
-		execFunc    ExecFunc
-		scopes      map[string]string
-		expectedSQL string
-		errContains string
+		description     string
+		slice           []interface{}
+		execFunc        ExecFunc
+		scopes          map[string]string
+		expectedSQL     string
+		expectedSQLVars []interface{}
+		errContains     string
 	}{
 		{
 			description: "scope returned ok",
@@ -77,6 +78,23 @@ func Test_scopeFromObjects(t *testing.T) {
 			execFunc:    InsertFunc,
 			expectedSQL: "INSERT INTO `` (`foo`) VALUES (?)",
 		},
+		{
+			description: "test setting default value",
+			slice: []interface{}{
+				struct {
+					ID  int    `gorm:"auto_increment"` // Should be skipped
+					Foo string `gorm:"default:'foobar'"`
+					Bar string
+				}{
+					ID:  0,
+					Foo: "",
+					Bar: "barbar",
+				},
+			},
+			execFunc:        InsertFunc,
+			expectedSQL:     "INSERT INTO `` (`bar`, `foo`) VALUES (?, ?)",
+			expectedSQLVars: []interface{}{"barbar", "foobar"},
+		},
 	}
 
 	for _, tc := range cases {
@@ -100,6 +118,10 @@ func Test_scopeFromObjects(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedSQL, scope.SQL)
+
+			if tc.expectedSQLVars != nil {
+				assert.Equal(t, tc.expectedSQLVars, scope.SQLVars)
+			}
 		})
 	}
 }

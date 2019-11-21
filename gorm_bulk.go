@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/jinzhu/gorm"
 )
@@ -135,7 +134,7 @@ func objectToMap(object interface{}) (map[string]interface{}, error) {
 
 		// Skip ID fields which is primary key/auto increment.
 		if field.DBName == "id" {
-			// Check if auto increment is set (but noit set to false)
+			// Check if auto increment is set (but not set to false)
 			if value, ok := field.TagSettingsGet("AUTO_INCREMENT"); ok {
 				if !strings.EqualFold(value, "false") {
 					continue
@@ -143,14 +142,15 @@ func objectToMap(object interface{}) (map[string]interface{}, error) {
 			}
 
 			// Primary keys will be auto incremented and populated automatically
-			// by the DBM.
-			if field.IsPrimaryKey {
+			// by the DBM so if they're blank (have their default value), skip
+			// them.
+			if field.IsPrimaryKey && field.IsBlank {
 				continue
 			}
 		}
 
 		if field.Struct.Name == "CreatedAt" || field.Struct.Name == "UpdatedAt" {
-			attributes[field.DBName] = time.Now()
+			attributes[field.DBName] = gorm.NowFunc()
 			continue
 		}
 
@@ -158,11 +158,8 @@ func objectToMap(object interface{}) (map[string]interface{}, error) {
 		if field.StructField.HasDefaultValue && field.IsBlank {
 			if val, ok := field.TagSettingsGet("DEFAULT"); ok {
 				attributes[field.DBName] = strings.Trim(val, "'")
-			} else {
-				attributes[field.DBName] = field.Field.Interface()
+				continue
 			}
-
-			continue
 		}
 
 		attributes[field.DBName] = field.Field.Interface()
