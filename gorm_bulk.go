@@ -52,7 +52,7 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 
 	// Get a map of the first element to calculate field names and number of
 	// placeholders.
-	firstObjectFields, err := objectToMap(objects[0])
+	firstObjectFields, err := ObjectToMap(objects[0])
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 	for _, r := range objects {
 		objectScope := db.NewScope(r)
 
-		row, err := objectToMap(r)
+		row, err := ObjectToMap(r)
 		if err != nil {
 			return nil, err
 		}
@@ -100,10 +100,17 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 	return scope, nil
 }
 
-func objectToMap(object interface{}) (map[string]interface{}, error) {
-	var (
-		attributes = map[string]interface{}{}
-	)
+// ObjectToMap takes any object of type <T> and returns a map with the gorm
+// field DB name as key and the value as value. Special fields and actions
+//  * Foreign keys - Will be left out
+//  * Relationship fields - Will be left out
+//  * Fields marked to be ignored - Will be left out
+//  * Fields named ID with auto increment - Will be left out
+//  * Fields named ID set as primary key with blank value - Will be left out
+//  * Fields named CreatedAt or UpdatedAt - Will be set to gorm.NowFunc() value
+//  * Blank fields with default value - Will be set to the default value
+func ObjectToMap(object interface{}) (map[string]interface{}, error) {
+	var attributes = map[string]interface{}{}
 
 	// De-reference pointers (and it's values)
 	rv := reflect.ValueOf(object)
