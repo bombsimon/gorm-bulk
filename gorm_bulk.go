@@ -66,6 +66,11 @@ func BulkExec(db *gorm.DB, objects []interface{}, execFunc ExecFunc) error {
 		return err
 	}
 
+	// No scope and no error means nothing to do
+	if scope == nil {
+		return nil
+	}
+
 	return db.Exec(scope.SQL, scope.SQLVars...).Error
 }
 
