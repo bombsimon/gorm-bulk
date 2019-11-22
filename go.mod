@@ -1,4 +1,4 @@
-module github.com/bombsimon/gormbulk
+module github.com/bombsimon/gorm-bulk
 
 go 1.13
 
