@@ -100,16 +100,19 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 		// the correct order of columns.
 		columnNames = append(columnNames, k)
 
-		// Add to the quoted slice to use for the final SQL to avoid errors and
-		// injections.
-		quotedColumnNames = append(quotedColumnNames, scope.Quote(gorm.ToColumnName(k)))
-
 		// Add as many placeholders (question marks) as there are columns.
 		placeholders = append(placeholders, "?")
 
 		// Sort the column names to ensure the right order.
 		sort.Strings(columnNames)
-		sort.Strings(quotedColumnNames)
+	}
+
+	// We must setup quotedColumnNames after sorting columnNames since sorting
+	// of quoted fields might differ from sorting without. This way we know that
+	// columnNames is the master of the order and will be used both when setting
+	// field and values order.
+	for i := range columnNames {
+		quotedColumnNames = append(quotedColumnNames, scope.Quote(gorm.ToColumnName(columnNames[i])))
 	}
 
 	for _, r := range objects {

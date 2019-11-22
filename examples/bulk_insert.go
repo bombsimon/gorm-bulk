@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bombsimon/gormbulk"
+	gormbulk "github.com/bombsimon/gorm-bulk"
 	"github.com/jinzhu/gorm"
 )
 

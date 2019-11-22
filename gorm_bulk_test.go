@@ -1,7 +1,9 @@
 package gormbulk
 
 import (
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jinzhu/gorm"
@@ -206,6 +208,58 @@ func TestBulkExecChunk(t *testing.T) {
 			err := BulkExecChunk(gdb, tc.slices, tc.execFunc, tc.chunkSize)
 
 			require.Nil(t, err)
+		})
+	}
+}
+
+func Test_columnOrder(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+
+	gdb, err := gorm.Open("mysql", db)
+	require.NoError(t, err)
+
+	type test struct {
+		Xxx      int
+		Time     time.Time
+		TimeFrom time.Time
+		Aaa      string
+		N1       string `gorm:"column:100_aa"`
+		N2       string `gorm:"column:100_a"`
+	}
+
+	cases := []struct {
+		description   string
+		slices        []interface{}
+		expectedOrder []string
+	}{
+		{
+			description: "sorted equally",
+			slices: []interface{}{
+				test{},
+			},
+			expectedOrder: []string{"`100_a`", "`100_aa`", "`aaa`", "`time`", "`time_from`", "`xxx`"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.description, func(t *testing.T) {
+			scopeFunc := func(scope *gorm.Scope, columns, _ []string) {
+				assert.Equal(t, tc.expectedOrder, columns)
+
+				// Prove that sorting quited columns differ from sorted string
+				// columns.
+				sort.Strings(columns)
+				assert.NotEqual(t, tc.expectedOrder, columns)
+
+				t.Logf("expected order: %s", tc.expectedOrder)
+				t.Logf("sort after quite yields different result: %s", columns)
+			}
+
+			scope, err := scopeFromObjects(gdb, tc.slices, scopeFunc)
+
+			require.NoError(t, err)
+			require.NotNil(t, scope)
 		})
 	}
 }
