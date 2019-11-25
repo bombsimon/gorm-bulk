@@ -175,24 +175,20 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 			continue
 		}
 
-		// Skip ignored fields.
 		if field.IsIgnored {
 			continue
 		}
 
-		// Skip ID fields which is primary key/auto increment.
-		if field.DBName == "id" {
-			// Check if auto increment is set (but not set to false)
-			if value, ok := field.TagSettingsGet("AUTO_INCREMENT"); ok {
-				if !strings.EqualFold(value, "false") {
-					continue
-				}
-			}
+		// Skip blank primary key fields named ID. They're proably coming from
+		// `gorm.Model` which doesn't have the AUTO_INCREMENT tag.
+		if field.DBName == "id" && field.IsPrimaryKey && field.IsBlank {
+			continue
+		}
 
-			// Primary keys will be auto incremented and populated automatically
-			// by the DBM so if they're blank (have their default value), skip
-			// them.
-			if field.IsPrimaryKey && field.IsBlank {
+		// Check if auto increment is set (but not set to false). If so skip the
+		// field and let the DBM auto increment the value.
+		if value, ok := field.TagSettingsGet("AUTO_INCREMENT"); ok {
+			if !strings.EqualFold(value, "false") {
 				continue
 			}
 		}
