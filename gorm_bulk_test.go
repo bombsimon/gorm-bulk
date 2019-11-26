@@ -29,6 +29,25 @@ func Test_scopeFromObjects(t *testing.T) {
 		CreatedAt time.Time
 	}
 
+	type T struct {
+		ID    int `gorm:"primary_key"`
+		Field string
+	}
+
+	type TT struct {
+		ID    int `gorm:"primary_key"`
+		Field string
+		T     T
+		TId   int
+	}
+
+	type TTT struct {
+		ID       int `gorm:"primary_key"`
+		Field    string
+		T        T `gorm:"foreignkey:RandomID"`
+		RandomID int
+	}
+
 	cases := []struct {
 		description     string
 		slice           []interface{}
@@ -39,6 +58,13 @@ func Test_scopeFromObjects(t *testing.T) {
 		expectedSQLVars []interface{}
 		errContains     string
 	}{
+		{
+			description: "invalid objects",
+			slice: []interface{}{
+				"string", 1,
+			},
+			errContains: "value must be kind of Struct",
+		},
 		{
 			description: "scope returned ok",
 			slice: []interface{}{
@@ -60,7 +86,7 @@ func Test_scopeFromObjects(t *testing.T) {
 			expectedSQL: "INSERT INTO `tests` (`bar`, `foo`) VALUES (?, ?) ON DUPLICATE KEY UPDATE foo = VALUES(foo)",
 		},
 		{
-			description: "test primary keys",
+			description: "pointers are de-references OK",
 			slice: []interface{}{
 				struct {
 					ID  int `gorm:"primary_key"` // Should be skipped
@@ -72,6 +98,41 @@ func Test_scopeFromObjects(t *testing.T) {
 			},
 			execFunc:    InsertFunc,
 			expectedSQL: "INSERT INTO `` (`foo`) VALUES (?)",
+		},
+		{
+			description: "relationships ignored",
+			slice: []interface{}{
+				TT{
+					Field: "keep me",
+					TId:   3,
+					T:     T{},
+				},
+			},
+			execFunc:        InsertFunc,
+			expectedSQL:     "INSERT INTO `tts` (`field`, `t_id`) VALUES (?, ?)",
+			expectedSQLVars: []interface{}{"keep me", 3},
+		},
+		{
+			description: "foreign key ignored",
+			slice: []interface{}{
+				TTT{
+					Field:    "keep me",
+					RandomID: 3,
+					T:        T{},
+				},
+			},
+			execFunc:        InsertFunc,
+			expectedSQL:     "INSERT INTO `ttts` (`field`, `random_id`) VALUES (?, ?)",
+			expectedSQLVars: []interface{}{"keep me", 3},
+		},
+		{
+			description: "test primary keys",
+			slice: []interface{}{
+				&test{"expected foo", "expected bar"},
+			},
+			execFunc:        InsertFunc,
+			expectedSQL:     "INSERT INTO `tests` (`bar`, `foo`) VALUES (?, ?)",
+			expectedSQLVars: []interface{}{"expected bar", "expected foo"},
 		},
 		{
 			description: "test auto increment",
@@ -86,6 +147,35 @@ func Test_scopeFromObjects(t *testing.T) {
 			},
 			execFunc:    InsertFunc,
 			expectedSQL: "INSERT INTO `` (`foo`) VALUES (?)",
+		},
+		{
+			description: "test auto increment set to true and ignored fields",
+			slice: []interface{}{
+				struct {
+					NotID    int `gorm:"auto_increment:true"` // Should be skipped
+					Foo      string
+					IgnoreMe string `gorm:"-"`
+				}{
+					NotID: 0,
+					Foo:   "foo",
+				},
+			},
+			execFunc:    InsertFunc,
+			expectedSQL: "INSERT INTO `` (`foo`) VALUES (?)",
+		},
+		{
+			description: "test auto increment set to false",
+			slice: []interface{}{
+				struct {
+					NotID int `gorm:"auto_increment:false"` // Should be skipped
+					Foo   string
+				}{
+					NotID: 0,
+					Foo:   "foo",
+				},
+			},
+			execFunc:    InsertFunc,
+			expectedSQL: "INSERT INTO `` (`foo`, `not_id`) VALUES (?, ?)",
 		},
 		{
 			description: "test setting default value",
@@ -189,7 +279,19 @@ func TestBulkExecChunk(t *testing.T) {
 		slices           []interface{}
 		chunkSize        int
 		expectedMockFunc func(mock sqlmock.Sqlmock)
+		countErrors      int
 	}{
+		{
+			description: "errors returned",
+			execFunc:    InsertFunc,
+			slices: []interface{}{
+				"string", "string",
+				1, 2,
+			},
+			expectedMockFunc: func(mock sqlmock.Sqlmock) {},
+			chunkSize:        1,
+			countErrors:      4,
+		},
 		{
 			description: "six rows in chunks of 3 - will be two calls with 6 args",
 			execFunc:    InsertFunc,
@@ -248,6 +350,11 @@ func TestBulkExecChunk(t *testing.T) {
 			tc.expectedMockFunc(mock)
 
 			err := BulkExecChunk(gdb, tc.slices, tc.execFunc, tc.chunkSize)
+
+			if tc.countErrors > 0 {
+				assert.Len(t, err, tc.countErrors)
+				return
+			}
 
 			require.Nil(t, err)
 		})
