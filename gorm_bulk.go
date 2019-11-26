@@ -148,7 +148,7 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 //  * Fields marked to be ignored - Will be left out
 //  * Fields named ID with auto increment - Will be left out
 //  * Fields named ID set as primary key with blank value - Will be left out
-//  * Fields named CreatedAt or UpdatedAt - Will be set to gorm.NowFunc() value
+//  * Fields named CreatedAt or UpdatedAt with blank values - Will be set to gorm.NowFunc() value
 //  * Blank fields with default value - Will be set to the default value
 func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 	var attributes = map[string]interface{}{}
@@ -194,8 +194,10 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 		}
 
 		if field.Struct.Name == "CreatedAt" || field.Struct.Name == "UpdatedAt" {
-			attributes[field.DBName] = gorm.NowFunc()
-			continue
+			if field.IsBlank {
+				attributes[field.DBName] = gorm.NowFunc()
+				continue
+			}
 		}
 
 		// Set the default value for blank fields.
