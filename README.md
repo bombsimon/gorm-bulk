@@ -18,6 +18,15 @@ comment](https://github.com/jinzhu/gorm/issues/255#issuecomment-481159929) but
 with the focus on flexibility and letting the end user handle final SQL, final
 values, how many to bulk at once etcetera.
 
+## Project status
+
+This project is in it's early phase and since I want to ensure that the end user
+interface ends up as smoot, simple and flexible as possible I won't create a
+v1.0 release tag until I feel the most important things are in to place.
+
+This doesn't mean that things aren't workign as indented, just that the API
+might change without notice.
+
 ## Installation
 
 ```sh
