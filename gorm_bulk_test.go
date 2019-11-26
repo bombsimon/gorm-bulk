@@ -18,6 +18,8 @@ func Test_scopeFromObjects(t *testing.T) {
 	gdb, err := gorm.Open("mysql", db)
 	require.NoError(t, err)
 
+	pastDate := time.Date(1985, 1, 1, 0, 0, 0, 0, time.UTC)
+
 	type test struct {
 		Foo string
 		Bar string
@@ -96,6 +98,23 @@ func Test_scopeFromObjects(t *testing.T) {
 			execFunc:        InsertFunc,
 			expectedSQL:     "INSERT INTO `` (`bar`, `foo`) VALUES (?, ?)",
 			expectedSQLVars: []interface{}{"barbar", "foobar"},
+		},
+		{
+			description: "test non default CreatedAt and UpdatedAt",
+			slice: []interface{}{
+				struct {
+					ID        int `gorm:"auto_increment"` // Should be skipped
+					CreatedAt time.Time
+					UpdatedAt time.Time
+				}{
+					ID:        0,
+					CreatedAt: pastDate,
+					UpdatedAt: pastDate,
+				},
+			},
+			execFunc:        InsertFunc,
+			expectedSQL:     "INSERT INTO `` (`created_at`, `updated_at`) VALUES (?, ?)",
+			expectedSQLVars: []interface{}{pastDate, pastDate},
 		},
 	}
 
