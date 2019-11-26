@@ -25,11 +25,16 @@ func Test_scopeFromObjects(t *testing.T) {
 		Bar string
 	}
 
+	type timeT struct {
+		CreatedAt time.Time
+	}
+
 	cases := []struct {
 		description     string
 		slice           []interface{}
 		execFunc        ExecFunc
 		scopes          map[string]string
+		allVarsSame     bool
 		expectedSQL     string
 		expectedSQLVars []interface{}
 		errContains     string
@@ -116,6 +121,15 @@ func Test_scopeFromObjects(t *testing.T) {
 			expectedSQL:     "INSERT INTO `` (`created_at`, `updated_at`) VALUES (?, ?)",
 			expectedSQLVars: []interface{}{pastDate, pastDate},
 		},
+		{
+			description: "ensure exact same time for all records",
+			slice: []interface{}{
+				timeT{}, timeT{}, timeT{},
+			},
+			execFunc:    InsertFunc,
+			allVarsSame: true,
+			expectedSQL: "INSERT INTO `time_ts` (`created_at`) VALUES (?), (?), (?)",
+		},
 	}
 
 	for _, tc := range cases {
@@ -142,6 +156,15 @@ func Test_scopeFromObjects(t *testing.T) {
 
 			if tc.expectedSQLVars != nil {
 				assert.Equal(t, tc.expectedSQLVars, scope.SQLVars)
+			}
+
+			if tc.allVarsSame {
+				require.True(t, len(scope.SQLVars) > 0)
+
+				first := scope.SQLVars[0]
+				for i := range scope.SQLVars[1:] {
+					assert.Equal(t, first, scope.SQLVars[i])
+				}
 			}
 		})
 	}

@@ -6,9 +6,17 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jinzhu/gorm"
 )
+
+// bulkNow holds a global now state and will be used for each records as
+// CreatedAt and UpdatedAt value if they're empty. This value will be set to the
+// value from gorm.NowFunc() in scopeFromObjects to ensure all objects get the
+// same value.
+// nolint: gochecknoglobals
+var bulkNow time.Time
 
 // BulkInsert will call BulkExec with the default InsertFunc.
 func BulkInsert(db *gorm.DB, objects []interface{}) error {
@@ -88,6 +96,13 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 		scope             = db.NewScope(objects[0])
 	)
 
+	// Ensure we set the correct time and reset it after we're done.
+	bulkNow = gorm.NowFunc()
+
+	defer func() {
+		bulkNow = time.Time{}
+	}()
+
 	// Get a map of the first element to calculate field names and number of
 	// placeholders.
 	firstObjectFields, err := ObjectToMap(objects[0])
@@ -148,10 +163,14 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 //  * Fields marked to be ignored - Will be left out
 //  * Fields named ID with auto increment - Will be left out
 //  * Fields named ID set as primary key with blank value - Will be left out
-//  * Fields named CreatedAt or UpdatedAt with blank values - Will be set to gorm.NowFunc() value
+//  * Fields named CreatedAt or UpdatedAt with blank values - Will be set to
+//  gorm.NowFunc() value
 //  * Blank fields with default value - Will be set to the default value
 func ObjectToMap(object interface{}) (map[string]interface{}, error) {
-	var attributes = map[string]interface{}{}
+	var (
+		attributes = map[string]interface{}{}
+		now        = bulkNow
+	)
 
 	// De-reference pointers (and it's values)
 	rv := reflect.ValueOf(object)
@@ -164,7 +183,9 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 		return nil, errors.New("value must be kind of Struct")
 	}
 
-	now := gorm.NowFunc()
+	if now.IsZero() {
+		now = gorm.NowFunc()
+	}
 
 	for _, field := range (&gorm.Scope{Value: object}).Fields() {
 		// Exclude relational record because it's not directly contained in database columns
