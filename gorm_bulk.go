@@ -164,6 +164,8 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 		return nil, errors.New("value must be kind of Struct")
 	}
 
+	now := gorm.NowFunc()
+
 	for _, field := range (&gorm.Scope{Value: object}).Fields() {
 		// Exclude relational record because it's not directly contained in database columns
 		_, hasForeignKey := field.TagSettingsGet("FOREIGNKEY")
@@ -195,7 +197,7 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 
 		if field.Struct.Name == "CreatedAt" || field.Struct.Name == "UpdatedAt" {
 			if field.IsBlank {
-				attributes[field.DBName] = gorm.NowFunc()
+				attributes[field.DBName] = now
 				continue
 			}
 		}
