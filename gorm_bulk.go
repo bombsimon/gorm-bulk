@@ -202,7 +202,18 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 			continue
 		}
 
-		// Skip blank primary key fields named ID. They're proably coming from
+		// Let the DBM set the default values since these might be meta values
+		// such as 'CURRENT_TIMESTAMP'. Has default will be set to true also for
+		// 'AUTO_INCREMENT' fields which is not primary keys so we must check
+		// that we've ACTUALLY configured a default value and uses the tag
+		// before we skip it.
+		if field.StructField.HasDefaultValue && field.IsBlank {
+			if _, ok := field.TagSettingsGet("DEFAULT"); ok {
+				continue
+			}
+		}
+
+		// Skip blank primary key fields named ID. They're probably coming from
 		// `gorm.Model` which doesn't have the AUTO_INCREMENT tag.
 		if field.DBName == "id" && field.IsPrimaryKey && field.IsBlank {
 			continue
@@ -219,14 +230,6 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 		if field.Struct.Name == "CreatedAt" || field.Struct.Name == "UpdatedAt" {
 			if field.IsBlank {
 				attributes[field.DBName] = now
-				continue
-			}
-		}
-
-		// Set the default value for blank fields.
-		if field.StructField.HasDefaultValue && field.IsBlank {
-			if val, ok := field.TagSettingsGet("DEFAULT"); ok {
-				attributes[field.DBName] = strings.Trim(val, "'")
 				continue
 			}
 		}

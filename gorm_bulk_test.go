@@ -167,7 +167,7 @@ func Test_scopeFromObjects(t *testing.T) {
 			description: "test auto increment set to false",
 			slice: []interface{}{
 				struct {
-					NotID int `gorm:"auto_increment:false"` // Should be skipped
+					NotID int `gorm:"auto_increment:false"` // Should NOT be skipped
 					Foo   string
 				}{
 					NotID: 0,
@@ -178,11 +178,11 @@ func Test_scopeFromObjects(t *testing.T) {
 			expectedSQL: "INSERT INTO `` (`foo`, `not_id`) VALUES (?, ?)",
 		},
 		{
-			description: "test setting default value",
+			description: "test setting default value (by omitting it and let DBM set it)",
 			slice: []interface{}{
 				struct {
-					ID  int    `gorm:"auto_increment"` // Should be skipped
-					Foo string `gorm:"default:'foobar'"`
+					ID  int    `gorm:"auto_increment"`   // Should be skipped
+					Foo string `gorm:"default:'foobar'"` // Should be skipped
 					Bar string
 				}{
 					ID:  0,
@@ -191,8 +191,8 @@ func Test_scopeFromObjects(t *testing.T) {
 				},
 			},
 			execFunc:        InsertFunc,
-			expectedSQL:     "INSERT INTO `` (`bar`, `foo`) VALUES (?, ?)",
-			expectedSQLVars: []interface{}{"barbar", "foobar"},
+			expectedSQL:     "INSERT INTO `` (`bar`) VALUES (?)",
+			expectedSQLVars: []interface{}{"barbar"},
 		},
 		{
 			description: "test non default CreatedAt and UpdatedAt",
