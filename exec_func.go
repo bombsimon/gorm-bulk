@@ -47,7 +47,7 @@ func InsertOnDuplicateKeyUpdateFunc(scope *gorm.Scope, columnNames, groups []str
 	var duplicateUpdates []string
 
 	for i := range columnNames {
-		if columnNames[i] != "created_at" {
+		if columnNames[i] != "`created_at`" {
 			duplicateUpdates = append(
 				duplicateUpdates,
 				fmt.Sprintf("%s = VALUES(%s)", columnNames[i], columnNames[i]),
