@@ -19,6 +19,7 @@ func Test_scopeFromObjects(t *testing.T) {
 	require.NoError(t, err)
 
 	pastDate := time.Date(1985, 1, 1, 0, 0, 0, 0, time.UTC)
+	nowDate := time.Now()
 
 	type test struct {
 		Foo string
@@ -82,8 +83,8 @@ func Test_scopeFromObjects(t *testing.T) {
 				test{"one", "two"},
 			},
 			execFunc:    InsertFunc,
-			scopes:      map[string]string{"gorm:insert_option": "ON DUPLICATE KEY UPDATE foo = VALUES(foo)"},
-			expectedSQL: "INSERT INTO `tests` (`bar`, `foo`) VALUES (?, ?) ON DUPLICATE KEY UPDATE foo = VALUES(foo)",
+			scopes:      map[string]string{"gorm:insert_option": "ON DUPLICATE KEY UPDATE `foo` = VALUES(`foo`)"},
+			expectedSQL: "INSERT INTO `tests` (`bar`, `foo`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `foo` = VALUES(`foo`)",
 		},
 		{
 			description: "pointers are de-references OK",
@@ -219,6 +220,23 @@ func Test_scopeFromObjects(t *testing.T) {
 			execFunc:    InsertFunc,
 			allVarsSame: true,
 			expectedSQL: "INSERT INTO `time_ts` (`created_at`) VALUES (?), (?), (?)",
+		},
+		{
+			description: "updated_at is ignored when using bundled duplicate key update func",
+			slice: []interface{}{
+				struct {
+					Foo       string
+					CreatedAt time.Time
+					UpdatedAt time.Time
+				}{
+					Foo:       "this is foo",
+					CreatedAt: nowDate,
+					UpdatedAt: nowDate,
+				},
+			},
+			execFunc:        InsertOnDuplicateKeyUpdateFunc,
+			expectedSQL:     "INSERT INTO `` (`created_at`, `foo`, `updated_at`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `foo` = VALUES(`foo`), `updated_at` = VALUES(`updated_at`)",
+			expectedSQLVars: []interface{}{nowDate, "this is foo", nowDate},
 		},
 	}
 
@@ -396,7 +414,7 @@ func Test_columnOrder(t *testing.T) {
 			scopeFunc := func(scope *gorm.Scope, columns, _ []string) {
 				assert.Equal(t, tc.expectedOrder, columns)
 
-				// Prove that sorting quited columns differ from sorted string
+				// Prove that sorting quoted columns differ from sorted string
 				// columns.
 				sort.Strings(columns)
 				assert.NotEqual(t, tc.expectedOrder, columns)

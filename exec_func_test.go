@@ -52,6 +52,13 @@ func Test_Exec(t *testing.T) {
 			expectedSQL:  "INSERT INTO `tests` (foo, bar) VALUES (?, ?), (?, ?) ON DUPLICATE KEY UPDATE foo = VALUES(foo), bar = VALUES(bar)",
 		},
 		{
+			description:  "on duplicate key does not update created_at",
+			execFunc:     InsertOnDuplicateKeyUpdateFunc,
+			columns:      []string{"`created_at`", "`foo`"},
+			placeholders: []string{"(?, ?)", "(?, ?)"},
+			expectedSQL:  "INSERT INTO `tests` (`created_at`, `foo`) VALUES (?, ?), (?, ?) ON DUPLICATE KEY UPDATE `foo` = VALUES(`foo`)",
+		},
+		{
 			description:  "correct insert ignore",
 			execFunc:     InsertIgnoreFunc,
 			columns:      []string{"foo", "bar"},
