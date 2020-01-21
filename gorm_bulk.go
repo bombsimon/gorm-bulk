@@ -6,17 +6,9 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/jinzhu/gorm"
 )
-
-// bulkNow holds a global now state and will be used for each records as
-// CreatedAt and UpdatedAt value if they're empty. This value will be set to the
-// value from gorm.NowFunc() in scopeFromObjects to ensure all objects get the
-// same value.
-// nolint: gochecknoglobals
-var bulkNow time.Time
 
 // BulkInsert will call BulkExec with the default InsertFunc.
 func BulkInsert(db *gorm.DB, objects []interface{}) error {
@@ -94,14 +86,8 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 		placeholders      []string
 		groups            []string
 		scope             = db.NewScope(objects[0])
+		bulkNow           = gorm.NowFunc()
 	)
-
-	// Ensure we set the correct time and reset it after we're done.
-	bulkNow = gorm.NowFunc()
-
-	defer func() {
-		bulkNow = time.Time{}
-	}()
 
 	// Get a map of the first element to calculate field names and number of
 	// placeholders.
@@ -139,7 +125,18 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 		}
 
 		for _, key := range columnNames {
-			objectScope.AddToVars(row[key])
+			field := row[key]
+			value := field.Field.Interface()
+
+			switch field.Struct.Name {
+			// Column CreatedAt and UpdatedAt with zero value will be set to same time
+			case "CreatedAt", "UpdatedAt":
+				if field.IsBlank {
+					value = bulkNow
+				}
+			}
+
+			objectScope.AddToVars(value)
 		}
 
 		groups = append(
@@ -163,13 +160,10 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 //  * Fields marked to be ignored - Will be left out
 //  * Fields named ID with auto increment - Will be left out
 //  * Fields named ID set as primary key with blank value - Will be left out
-//  * Fields named CreatedAt or UpdatedAt with blank values - Will be set to
-//  gorm.NowFunc() value
 //  * Blank fields with default value - Will be set to the default value
-func ObjectToMap(object interface{}) (map[string]interface{}, error) {
+func ObjectToMap(object interface{}) (map[string]*gorm.Field, error) {
 	var (
-		attributes = map[string]interface{}{}
-		now        = bulkNow
+		attributes = map[string]*gorm.Field{}
 	)
 
 	// De-reference pointers (and it's values)
@@ -181,10 +175,6 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 
 	if rv.Kind() != reflect.Struct {
 		return nil, errors.New("value must be kind of Struct")
-	}
-
-	if now.IsZero() {
-		now = gorm.NowFunc()
 	}
 
 	for _, field := range (&gorm.Scope{Value: object}).Fields() {
@@ -227,14 +217,7 @@ func ObjectToMap(object interface{}) (map[string]interface{}, error) {
 			}
 		}
 
-		if field.Struct.Name == "CreatedAt" || field.Struct.Name == "UpdatedAt" {
-			if field.IsBlank {
-				attributes[field.DBName] = now
-				continue
-			}
-		}
-
-		attributes[field.DBName] = field.Field.Interface()
+		attributes[field.DBName] = field
 	}
 
 	return attributes, nil
