@@ -515,6 +515,51 @@ func Test_Timestamps(t *testing.T) {
 				assert.True(t, updatedAtTime.After(testStartedAt))
 			},
 		},
+		{
+			description: "all records with empty time will be set to the same value",
+			slice: []interface{}{
+				struct {
+					Foo       string
+					CreatedAt time.Time
+					UpdatedAt time.Time
+				}{
+					Foo: "this is foo",
+				},
+				struct {
+					Foo       string
+					CreatedAt time.Time
+					UpdatedAt time.Time
+				}{
+					Foo: "this is bar",
+				},
+				struct {
+					Foo       string
+					CreatedAt time.Time
+					UpdatedAt time.Time
+				}{
+					Foo: "this is baz",
+				},
+			},
+			expectedSQL: "INSERT INTO `` (`created_at`, `foo`, `updated_at`) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)",
+			validFunc: func(t *testing.T, vars []interface{}) {
+				var bulkTime time.Time
+				for i, columnNum := 0, 3; i < len(vars)/columnNum; i++ {
+					createdAt, updatedAt := vars[i*columnNum+0], vars[i*columnNum+2]
+					if bulkTime.IsZero() {
+						bulkTime = createdAt.(time.Time)
+						assert.True(t, bulkTime.After(testStartedAt))
+					}
+
+					createdAtTime, ok := createdAt.(time.Time)
+					assert.True(t, ok)
+					assert.True(t, createdAtTime.Equal(bulkTime))
+
+					updatedAtTime, ok := updatedAt.(time.Time)
+					assert.True(t, ok)
+					assert.True(t, updatedAtTime.Equal(bulkTime))
+				}
+			},
+		},
 	}
 
 	for _, tc := range cases {
