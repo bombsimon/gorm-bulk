@@ -430,3 +430,103 @@ func Test_columnOrder(t *testing.T) {
 		})
 	}
 }
+
+func Test_Timestamps(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+
+	gdb, err := gorm.Open("mysql", db)
+	require.NoError(t, err)
+
+	pastDate := time.Date(1985, 1, 1, 0, 0, 0, 0, time.UTC)
+	testStartedAt := time.Now()
+
+	cases := []struct {
+		description string
+		slice       []interface{}
+		expectedSQL string
+		validFunc   func(t *testing.T, vars []interface{})
+	}{
+		{
+			description: "set dates will persist",
+			slice: []interface{}{
+				struct {
+					Foo       string
+					CreatedAt time.Time
+					UpdatedAt time.Time
+				}{
+					Foo:       "this is foo",
+					CreatedAt: pastDate,
+					UpdatedAt: pastDate,
+				},
+			},
+			expectedSQL: "INSERT INTO `` (`created_at`, `foo`, `updated_at`) VALUES (?, ?, ?)",
+			validFunc: func(t *testing.T, vars []interface{}) {
+				createdAt, updatedAt := vars[0], vars[2]
+				assert.Equal(t, pastDate, createdAt)
+				assert.Equal(t, pastDate, updatedAt)
+			},
+		},
+		{
+			description: "empty time pointers will be set to now func",
+			slice: []interface{}{
+				struct {
+					Foo       string
+					CreatedAt *time.Time
+					UpdatedAt *time.Time
+				}{
+					Foo: "this is foo",
+				},
+			},
+			expectedSQL: "INSERT INTO `` (`created_at`, `foo`, `updated_at`) VALUES (?, ?, ?)",
+			validFunc: func(t *testing.T, vars []interface{}) {
+				createdAt, updatedAt := vars[0], vars[2]
+
+				createdAtTime, ok := createdAt.(time.Time)
+				assert.True(t, ok)
+				assert.True(t, createdAtTime.After(testStartedAt))
+
+				updatedAtTime, ok := updatedAt.(time.Time)
+				assert.True(t, ok)
+				assert.True(t, updatedAtTime.After(testStartedAt))
+			},
+		},
+		{
+			description: "empty time will be set to now func",
+			slice: []interface{}{
+				struct {
+					Foo       string
+					CreatedAt time.Time
+					UpdatedAt time.Time
+				}{
+					Foo: "this is foo",
+				},
+			},
+			expectedSQL: "INSERT INTO `` (`created_at`, `foo`, `updated_at`) VALUES (?, ?, ?)",
+			validFunc: func(t *testing.T, vars []interface{}) {
+				createdAt, updatedAt := vars[0], vars[2]
+
+				createdAtTime, ok := createdAt.(time.Time)
+				assert.True(t, ok)
+				assert.True(t, createdAtTime.After(testStartedAt))
+
+				updatedAtTime, ok := updatedAt.(time.Time)
+				assert.True(t, ok)
+				assert.True(t, updatedAtTime.After(testStartedAt))
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.description, func(t *testing.T) {
+			scope, err := scopeFromObjects(gdb, tc.slice, InsertFunc)
+
+			require.NotNil(t, scope)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedSQL, scope.SQL)
+
+			tc.validFunc(t, scope.SQLVars)
+		})
+	}
+}
