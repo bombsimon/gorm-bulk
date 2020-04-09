@@ -49,6 +49,12 @@ func Test_scopeFromObjects(t *testing.T) {
 		RandomID int
 	}
 
+	type TTTT struct {
+		ID               int
+		NormalizeField   string
+		PreserveTagField string `gorm:"column:ThisIsPreserved"`
+	}
+
 	cases := []struct {
 		description     string
 		slice           []interface{}
@@ -237,6 +243,18 @@ func Test_scopeFromObjects(t *testing.T) {
 			execFunc:        InsertOnDuplicateKeyUpdateFunc,
 			expectedSQL:     "INSERT INTO `` (`created_at`, `foo`, `updated_at`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `foo` = VALUES(`foo`), `updated_at` = VALUES(`updated_at`)",
 			expectedSQLVars: []interface{}{nowDate, "this is foo", nowDate},
+		},
+		{
+			description: "ensure column tag preserve the tag 1:1",
+			slice: []interface{}{
+				TTTT{
+					NormalizeField:   "Changed",
+					PreserveTagField: "Kept",
+				},
+			},
+			execFunc:        InsertFunc,
+			expectedSQLVars: []interface{}{"Kept", "Changed"},
+			expectedSQL:     "INSERT INTO `tttts` (`ThisIsPreserved`, `normalize_field`) VALUES (?, ?)",
 		},
 	}
 

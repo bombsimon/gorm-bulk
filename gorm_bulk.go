@@ -113,7 +113,7 @@ func scopeFromObjects(db *gorm.DB, objects []interface{}, execFunc ExecFunc) (*g
 	// columnNames is the master of the order and will be used both when setting
 	// field and values order.
 	for i := range columnNames {
-		quotedColumnNames = append(quotedColumnNames, scope.Quote(gorm.ToColumnName(columnNames[i])))
+		quotedColumnNames = append(quotedColumnNames, scope.Quote(columnNames[i]))
 	}
 
 	for _, r := range objects {
